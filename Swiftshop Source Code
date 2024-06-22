@@ -1,0 +1,170 @@
+ I'll create the source code for SwiftShop, including both the frontend and backend components. I'll provide the key files for each part of the application.
+
+Let's start with the frontend:
+
+1. Frontend (React + TypeScript)
+
+First, create a new React project with TypeScript:
+
+```bash
+npx create-react-app swiftshop-frontend --template typescript
+cd swiftshop-frontend
+npm install @material-ui/core @material-ui/icons axios react-router-dom @types/react-router-dom @reduxjs/toolkit react-redux
+```
+
+Now, let's create the necessary files:
+
+`src/services/api.ts`:
+
+```typescript
+import axios from 'axios';
+
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:5000/api';
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+export const getProducts = async () => {
+  try {
+    const response = await api.get('/products');
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to fetch products');
+  }
+};
+
+export const createOrder = async (orderData: any) => {
+  try {
+    const response = await api.post('/orders', orderData);
+    return response.data;
+  } catch (error) {
+    throw new Error('Failed to create order');
+  }
+};
+```
+
+`src/store/productSlice.ts`:
+
+```typescript
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { getProducts } from '../services/api';
+
+export const fetchProducts = createAsyncThunk(
+  'products/fetchProducts',
+  async (_, { rejectWithValue }) => {
+    try {
+      return await getProducts();
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+interface Product {
+  id: string;
+  name: string;
+  price: number;
+  imageUrl: string;
+}
+
+interface ProductState {
+  items: Product[];
+  status: 'idle' | 'loading' | 'succeeded' | 'failed';
+  error: string | null;
+}
+
+const initialState: ProductState = {
+  items: [],
+  status: 'idle',
+  error: null,
+};
+
+const productSlice = createSlice({
+  name: 'products',
+  initialState,
+  reducers: {},
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchProducts.pending, (state) => {
+        state.status = 'loading';
+      })
+      .addCase(fetchProducts.fulfilled, (state, action) => {
+        state.status = 'succeeded';
+        state.items = action.payload;
+      })
+      .addCase(fetchProducts.rejected, (state, action) => {
+        state.status = 'failed';
+        state.error = action.payload as string;
+      });
+  },
+});
+
+export default productSlice.reducer;
+```
+
+`src/store/cartSlice.ts`:
+
+```typescript
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+
+interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+}
+
+interface CartState {
+  items: CartItem[];
+}
+
+const initialState: CartState = {
+  items: [],
+};
+
+const cartSlice = createSlice({
+  name: 'cart',
+  initialState,
+  reducers: {
+    addToCart: (state, action: PayloadAction<Omit<CartItem, 'quantity'>>) => {
+      const existingItem = state.items.find(item => item.id === action.payload.id);
+      if (existingItem) {
+        existingItem.quantity += 1;
+      } else {
+        state.items.push({ ...action.payload, quantity: 1 });
+      }
+    },
+    removeFromCart: (state, action: PayloadAction<string>) => {
+      state.items = state.items.filter(item => item.id !== action.payload);
+    },
+    updateQuantity: (state, action: PayloadAction<{ id: string; quantity: number }>) => {
+      const item = state.items.find(item => item.id === action.payload.id);
+      if (item) {
+        item.quantity = action.payload.quantity;
+      }
+    },
+  },
+});
+
+export const { addToCart, removeFromCart, updateQuantity } = cartSlice.actions;
+export default cartSlice.reducer;
+```
+
+`src/store/index.ts`:
+
+```typescript
+import { configureStore } from '@reduxjs/toolkit';
+import { TypedUseSelectorHook, useDispatch, useSelector } from 'react-redux';
+import productReducer from './productSlice';
+import cartReducer from './cartSlice';
+
+export const store = configureStore({
+  reducer: {
+    products: productReducer,
+    cart: cartReducer,
+  },
+});
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.
