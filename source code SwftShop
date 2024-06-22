@@ -1,0 +1,317 @@
+ I'll develop a basic structure for both the backend and frontend, incorporating the enhanced entities and relationships from the Entity-Relationship (E-R) model. Please note that this will be a simplified version and may require further refinement for a production-ready application.
+
+Let's start with the backend:
+
+Backend (Node.js + Express + MongoDB):
+
+1. First, set up the project:
+
+```bash
+mkdir swiftshop-backend
+cd swiftshop-backend
+npm init -y
+npm install express mongoose dotenv bcrypt jsonwebtoken
+npm install --save-dev @types/express @types/mongoose @types/bcrypt @types/jsonwebtoken
+```
+
+2. Create `src/server.ts`:
+
+```typescript
+import express from 'express';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
+import userRoutes from './routes/userRoutes';
+import itemRoutes from './routes/itemRoutes';
+import cartRoutes from './routes/cartRoutes';
+import receiptRoutes from './routes/receiptRoutes';
+
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost/swiftshop')
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((error) => console.error('MongoDB connection error:', error));
+
+app.use('/api/users', userRoutes);
+app.use('/api/items', itemRoutes);
+app.use('/api/carts', cartRoutes);
+app.use('/api/receipts', receiptRoutes);
+
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+```
+
+3. Create models in `src/models/`:
+
+`src/models/User.ts`:
+```typescript
+import mongoose from 'mongoose';
+
+const userSchema = new mongoose.Schema({
+  UserID: { type: Number, unique: true, required: true },
+  PhoneNumber: { type: String, required: true },
+  Email: { type: String, required: true, unique: true },
+  DateOfBirth: { type: Date, required: true },
+  PaymentMethod: { type: String },
+  MembershipTier: { type: String },
+  Password: { type: String, required: true }
+});
+
+export default mongoose.model('User', userSchema);
+```
+
+`src/models/Item.ts`:
+```typescript
+import mongoose from 'mongoose';
+
+const itemSchema = new mongoose.Schema({
+  ItemID: { type: Number, unique: true, required: true },
+  Name: { type: String, required: true },
+  Description: { type: String },
+  Price: { type: Number, required: true },
+  Category: { type: String },
+  Stock: { type: Number, required: true }
+});
+
+export default mongoose.model('Item', itemSchema);
+```
+
+`src/models/Cart.ts`:
+```typescript
+import mongoose from 'mongoose';
+
+const cartSchema = new mongoose.Schema({
+  CartID: { type: Number, unique: true, required: true },
+  UserID: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  Items: [{
+    ItemID: { type: mongoose.Schema.Types.ObjectId, ref: 'Item' },
+    Quantity: { type: Number, required: true }
+  }],
+  TotalAmount: { type: Number, required: true }
+});
+
+export default mongoose.model('Cart', cartSchema);
+```
+
+`src/models/Receipt.ts`:
+```typescript
+import mongoose from 'mongoose';
+
+const receiptSchema = new mongoose.Schema({
+  ReceiptID: { type: Number, unique: true, required: true },
+  UserID: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  CartID: { type: mongoose.Schema.Types.ObjectId, ref: 'Cart', required: true },
+  Date: { type: Date, default: Date.now },
+  TotalAmount: { type: Number, required: true },
+  PaymentMethod: { type: String, required: true }
+});
+
+export default mongoose.model('Receipt', receiptSchema);
+```
+
+4. Create routes in `src/routes/`:
+
+`src/routes/userRoutes.ts`:
+```typescript
+import express from 'express';
+import User from '../models/User';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+
+const router = express.Router();
+
+router.post('/register', async (req, res) => {
+  try {
+    const hashedPassword = await bcrypt.hash(req.body.Password, 10);
+    const user = new User({
+      ...req.body,
+      Password: hashedPassword
+    });
+    await user.save();
+    res.status(201).json({ message: 'User created successfully' });
+  } catch (error) {
+    res.status(400).json({ error: 'Registration failed' });
+  }
+});
+
+router.post('/login', async (req, res) => {
+  try {
+    const user = await User.findOne({ Email: req.body.Email });
+    if (!user) {
+      return res.status(400).json({ error: 'User not found' });
+    }
+    const validPassword = await bcrypt.compare(req.body.Password, user.Password);
+    if (!validPassword) {
+      return res.status(400).json({ error: 'Invalid password' });
+    }
+    const token = jwt.sign({ UserID: user.UserID }, process.env.JWT_SECRET || 'your_jwt_secret');
+    res.json({ token });
+  } catch (error) {
+    res.status(400).json({ error: 'Login failed' });
+  }
+});
+
+export default router;
+```
+
+Create similar route files for items, carts, and receipts.
+
+Now, let's create a basic frontend structure:
+
+Frontend (React + TypeScript):
+
+1. Set up the project:
+
+```bash
+npx create-react-app swiftshop-frontend --template typescript
+cd swiftshop-frontend
+npm install @material-ui/core @material-ui/icons axios react-router-dom @types/react-router-dom @reduxjs/toolkit react-redux
+```
+
+2. Update `src/App.tsx`:
+
+```tsx
+import React from 'react';
+import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import { Container } from '@material-ui/core';
+import Header from './components/Header';
+import Home from './pages/Home';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import ItemList from './pages/ItemList';
+import Cart from './pages/Cart';
+
+function App() {
+  return (
+    <Router>
+      <Header />
+      <Container>
+        <Switch>
+          <Route exact path="/" component={Home} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
+          <Route path="/items" component={ItemList} />
+          <Route path="/cart" component={Cart} />
+        </Switch>
+      </Container>
+    </Router>
+  );
+}
+
+export default App;
+```
+
+3. Create components in `src/components/`:
+
+`src/components/Header.tsx`:
+```tsx
+import React from 'react';
+import { AppBar, Toolbar, Typography, Button } from '@material-ui/core';
+import { Link } from 'react-router-dom';
+
+const Header: React.FC = () => {
+  return (
+    <AppBar position="static">
+      <Toolbar>
+        <Typography variant="h6" style={{ flexGrow: 1 }}>
+          SwiftShop
+        </Typography>
+        <Button color="inherit" component={Link} to="/">Home</Button>
+        <Button color="inherit" component={Link} to="/items">Items</Button>
+        <Button color="inherit" component={Link} to="/cart">Cart</Button>
+        <Button color="inherit" component={Link} to="/login">Login</Button>
+        <Button color="inherit" component={Link} to="/register">Register</Button>
+      </Toolbar>
+    </AppBar>
+  );
+};
+
+export default Header;
+```
+
+4. Create pages in `src/pages/`:
+
+`src/pages/Home.tsx`:
+```tsx
+import React from 'react';
+import { Typography } from '@material-ui/core';
+
+const Home: React.FC = () => {
+  return (
+    <div>
+      <Typography variant="h4">Welcome to SwiftShop</Typography>
+      <Typography>Start shopping with us today!</Typography>
+    </div>
+  );
+};
+
+export default Home;
+```
+
+Create similar files for Login, Register, ItemList, and Cart pages.
+
+5. Set up Redux store:
+
+`src/store/index.ts`:
+```typescript
+import { configureStore } from '@reduxjs/toolkit';
+import userReducer from './userSlice';
+import itemReducer from './itemSlice';
+import cartReducer from './cartSlice';
+
+export const store = configureStore({
+  reducer: {
+    user: userReducer,
+    items: itemReducer,
+    cart: cartReducer,
+  },
+});
+
+export type RootState = ReturnType<typeof store.getState>;
+export type AppDispatch = typeof store.dispatch;
+```
+
+6. Create slices in `src/store/`:
+
+`src/store/userSlice.ts`:
+```typescript
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
+
+export const loginUser = createAsyncThunk(
+  'users/login',
+  async (credentials: { Email: string; Password: string }) => {
+    const response = await axios.post('/api/users/login', credentials);
+    return response.data;
+  }
+);
+
+const userSlice = createSlice({
+  name: 'user',
+  initialState: { token: null, error: null },
+  reducers: {
+    logout: (state) => {
+      state.token = null;
+    },
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.token = action.payload.token;
+        state.error = null;
+      })
+      .addCase(loginUser.rejected, (state, action) => {
+        state.error = action.error.message;
+      });
+  },
+});
+
+export const { logout } = userSlice.actions;
+export default userSlice.reducer;
+```
+
+Create similar slices for items and cart.
+
+This is a basic structure for SwiftShop. You'll need to implement more components, pages, and functionality to create a fully-featured e-commerce application. Remember to handle errors, implement proper authentication and authorization, and follow best practices for security and performance.
