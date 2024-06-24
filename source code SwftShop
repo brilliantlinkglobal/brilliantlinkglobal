@@ -1,36 +1,68 @@
-3 I'll develop a basic structure for both the backend and frontend, incorporating the enhanced entities and relationships from the Entity-Relationship (E-R) model. Please note that this will be a simplified version and may require further refinement for a production-ready application.
+Backend Enhancements
+Environment Variables: Securely handle sensitive information.
+Input Validation: Use Joi for schema validation.
+Error Handling: Implement a global error handler.
+Secure Password Storage: Ensure secure password hashing.
+Authorization: Implement role-based access control (RBAC).
 
-Let's start with the backend:
-
-Backend (Node.js + Express + MongoDB):
-
-1. First, set up the project:
+1.Setting up project:
 
 ```bash
 mkdir swiftshop-backend
 cd swiftshop-backend
 npm init -y
-npm install express mongoose dotenv bcrypt jsonwebtoken
-npm install --save-dev @types/express @types/mongoose @types/bcrypt @types/jsonwebtoken
+npm install express mongoose dotenv bcrypt jsonwebtoken joi
+npm install --save-dev @types/express @types/mongoose @types/bcrypt @types/jsonwebtoken @types/joi
 ```
+2. Create project structure:
+src/
+├── controllers/
+│   └── userController.ts
+├── middleware/
+│   └── authMiddleware.ts
+│   └── errorHandler.ts
+├── models/
+│   └── User.ts
+│   └── Item.ts
+│   └── Cart.ts
+│   └── Receipt.ts
+├── routes/
+│   └── userRoutes.ts
+│   └── itemRoutes.ts
+│   └── cartRoutes.ts
+│   └── receiptRoutes.ts
+├── utils/
+│   └── validateRequest.ts
+├── server.ts
+└── config.ts
 
-2. Create `src/server.ts`:
+3. Create a database configuration src/config.ts:
+
+```typescript
+import dotenv from 'dotenv';
+dotenv.config();
+export default {
+  MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost/swiftshop',
+  JWT_SECRET: process.env.JWT_SECRET || 'your_jwt_secret',
+  PORT: process.env.PORT || 5000
+};
+```
+4. Create src/server.ts:
 
 ```typescript
 import express from 'express';
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import config from './config';
 import userRoutes from './routes/userRoutes';
 import itemRoutes from './routes/itemRoutes';
 import cartRoutes from './routes/cartRoutes';
 import receiptRoutes from './routes/receiptRoutes';
-
-dotenv.config();
+import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
 app.use(express.json());
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost/swiftshop')
+mongoose.connect(config.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch((error) => console.error('MongoDB connection error:', error));
 
@@ -39,11 +71,12 @@ app.use('/api/items', itemRoutes);
 app.use('/api/carts', cartRoutes);
 app.use('/api/receipts', receiptRoutes);
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.use(errorHandler);
+
+app.listen(config.PORT, () => console.log(`Server running on port ${config.PORT}`));
 ```
 
-3. Create models in `src/models/`:
+5. Create models in `src/models/`:
 
 `src/models/User.ts`:
 ```typescript
@@ -57,7 +90,7 @@ const userSchema = new mongoose.Schema({
   PaymentMethod: { type: String },
   MembershipTier: { type: String },
   Password: { type: String, required: true }
-});
+}, { timestamps: true });
 
 export default mongoose.model('User', userSchema);
 ```
