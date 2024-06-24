@@ -1,4 +1,4 @@
- Below, I'll provide some code examples and specific configurations for implementing these recommendations in the SwiftShop application.
+3 Below, I'll provide some code examples and specific configurations for implementing these recommendations in the SwiftShop application.
 
  Backend Enhancements
 
@@ -174,7 +174,7 @@
        <>
          <Helmet>
            <title>SwiftShop - Home</title>
-           <meta name="description" content="Best online shop for your needs" />
+           <meta name="description" content="Shop Smart , Shop Swift" />
          </Helmet>
          <div>
            <h1>Welcome to SwiftShop</h1>
